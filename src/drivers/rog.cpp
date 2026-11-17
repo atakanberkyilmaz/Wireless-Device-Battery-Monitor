@@ -6,8 +6,14 @@
 // Offsets count the report id byte. Only query commands are sent.
 // Protocol and model table from github.com/SteveWang92/peripheral-battery-tray (rog-battery,
 // MIT, itself based on G-Helper) and github.com/1gcat/BatteryTool.
+// 0B05:1AD0 is the ROG SpeedNova 8K receiver. G-Helper (github.com/seerge/g-helper,
+// app/Peripherals/PeripheralsProvider.cs, DetectHarpeIIWireless) reads the Harpe II Ace through it,
+// but the receiver is also sold and used on its own, and no public pairing query is known for it
+// (the Omni [01 A0 00] pair list is only documented for 0B05:1ACE). See PollRog for how a receiver
+// with nothing paired is kept off the list (issue #140).
 #include "drivers.h"
 
+#include <atomic>
 #include <cwctype>
 
 namespace {
@@ -120,9 +126,11 @@ Reply Query(HidDev& d, BYTE rid, BYTE cmd, BYTE sub, std::vector<BYTE>& reply) {
 }
 
 // Reads one model's battery through an open collection. Returns false if it did not answer.
-bool ReadModel(HidDev& d, const Model& m, DeviceStatus& s) {
+// `real` (optional) is set when the device itself answered, not just the receiver's FF AA.
+bool ReadModel(HidDev& d, const Model& m, DeviceStatus& s, bool* real = nullptr) {
     std::vector<BYTE> r;
     Reply res = Query(d, m.reportId, 0x12, m.kind == KB ? 0x01 : 0x07, r);
+    if (real) *real = res == Reply::Ok;
     if (res == Reply::None) return false;
     s.key = L"rog:" + Hex4(m.pid) + (m.kind == KB ? L":kb" : L":ms");
     s.name = m.name;
@@ -141,6 +149,10 @@ bool ReadModel(HidDev& d, const Model& m, DeviceStatus& s) {
     }
     return true;
 }
+
+// ROG SpeedNova 8K receiver (0B05:1AD0), see the header and PollRog.
+constexpr USHORT kSpeedNovaPid = 0x1AD0;
+std::atomic<bool> gSpeedNovaMouseSeen{ false };
 
 void AddOnce(PollContext& ctx, std::vector<std::wstring>& seen, const DeviceStatus& s) {
     for (auto& n : seen)
@@ -189,7 +201,16 @@ void PollRog(PollContext& ctx) {
         for (const HidColl* c : colls) {
             HidDev d;
             DeviceStatus s;
-            if (!d.Open(*c) || !ReadModel(d, m, s)) continue;
+            bool real = false;
+            if (!d.Open(*c) || !ReadModel(d, m, s, &real)) continue;
+            if (m.pid == kSpeedNovaPid) {
+                // The SpeedNova receiver answers FF AA ("nobody there") both when the Harpe II Ace
+                // is asleep and when no mouse is paired at all. Only list it once the mouse itself
+                // has answered with a battery level since the app started; after that FF AA means
+                // asleep again, like on every other ROG receiver.
+                if (real && s.percent >= 0) gSpeedNovaMouseSeen = true;
+                if (!gSpeedNovaMouseSeen) break;
+            }
             AddOnce(ctx, seen, s);
             ctx.Claim(0x0B05, m.pid);
             break;
