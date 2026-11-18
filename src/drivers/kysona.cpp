@@ -28,6 +28,11 @@ bool IsVxeR1(USHORT vid, USHORT pid) {
            (pid == 0xF58A || pid == 0xF58C || pid == 0xF58E || pid == 0xF58F || pid == 0xF505 || pid == 0xF506);
 }
 
+// HECATE (Edifier) also sells headsets under 35BB (G2 Wireless 7.1: dongles A009 / A209) with a 64-byte
+// FF02:0002 vendor collection that speaks something else; only the mouse ids from HECATE Connect's
+// Config.ini (dongle D3FB, mouse over cable D3FA / D3FC / D3FD) get Kysona frames.
+bool IsHecateMouse(USHORT pid) { return pid == 0xD3FA || pid == 0xD3FB || pid == 0xD3FC || pid == 0xD3FD; }
+
 bool IsCable(USHORT vid, USHORT pid) {
     bool hecate_cable = vid == 0x35BB && (pid == 0xD3FA || pid == 0xD3FC || pid == 0xD3FD);
     return (vid == 0x33E4 && GWolvesIsCable(pid)) || hecate_cable ||
@@ -79,6 +84,8 @@ void PollKysona(PollContext& ctx) {
             // ATK N9 Pro / N9 Ultra headsets speak a serial protocol (atk_serial.cpp); never send
             // them mouse frames, even when the ATK app holds their port and they stay unclaimed.
             if (vid == 0x373B && (pid == 0x11CA || pid == 0x11CB || pid == 0x1203 || pid == 0x1204)) continue;
+            // Same for HECATE headsets (G2 Wireless 7.1, issue #1358): mouse frames only go to HECATE mouse ids.
+            if (vid == 0x35BB && !IsHecateMouse(pid)) continue;
             // Kysona exposes a dedicated 17-byte collection; ATK / VXE receivers put report 08 in a
             // vendor collection that also carries larger reports. The checksummed reply filters out
             // anything that does not speak this protocol.
