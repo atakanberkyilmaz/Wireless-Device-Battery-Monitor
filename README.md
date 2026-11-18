@@ -76,6 +76,7 @@ Hover for details. Click for the menu: every device (click one to hide or show i
 | **Endgame Gear** | OP1w 4k (v1 / v2), XM2w 4k (v1 / v2) on the 4K dongle; XM2we on its original receiver (`3367:1961`) | Vendor feature report `A1`, battery command `B4` (read-only) |
 | **ATK keyboards** | ATK V75X on the 2.4 GHz receiver (`320F:5088`) or USB cable (`320F:5055`) | Evision output report `04`, battery command `1A` (from ATK HUB); asked at most every 10 minutes over the receiver |
 | **Audeze** | Maxwell on the USB dongle (`3329:4B19`) or USB-C cable (`3329:4B1A`); Xbox and Maxwell 2 ids untested | Vendor report `06` / input report `07`, battery attribute `0CD6` (single read-only query) |
+| **ENDORFY** | Viro Wireless on its 2.4 GHz dongle (`3738:0072`, untested) | Airoha RACE "get battery" (`0CD6`) on vendor report `06` / input report `07`, the same read-only query as Audeze and Skullcandy dongles; no charging state |
 | **NZXT** | Lift Elite Wireless on its dongle (`1E71:2101`) or USB cable (`1E71:2129`) | Vendor read `4E 02 81 .. B0` (from NZXT CAM captures) |
 | **Poly / Plantronics** | Voyager 8200 UC and other headsets behind the BT600 adapter (`047F:02EE` / `02F7`) | Report `07` get/set protocol, battery item `0A 1A` (read only) |
 | **WLMouse** | YING Magnesium (YING 8K receiver `36A7:A874`); Beast X 8K, Beast X Mini / Mini Pro, Beast X Pro, Beast MAX, Sword X 8K (receiver or cable; not the Beast X 4K); Beast X V2 (8K receiver `36A7:A856`) | Vendor feature report, status command `0x83` (YING: same protocol as Glorious) |
