@@ -4,9 +4,55 @@
 // Unlike the Kysona transport, Feature 08 is sent on FF02:0002 and Input 09 arrives on
 // the sibling FF01:0000 collection. Only command 04 is needed; no initialization/settings.
 // Reply: [09][04][status=0]...[6=percent][7=charging]. No reply checksum rule is established.
+//
+// DAREU A84 keyboard (260D:0022, SONiX chip). From the official "DAREU A84 THREE MODE MECHANICAL
+// KEYBOARD V1.6" driver (dareu.com/pages/keyboard-driver): its launcher (DeviceDriver.exe, config
+// `vid="260D" pid="0022"`) opens the device's interface 0 (path containing "mi_00", the keyboard
+// collection with the 65-byte feature report) and, on a timer, sends one command only:
+//   SetFeature [00][04 F6 00 ...] (65 bytes), then GetFeature report 0, three reads discarded,
+//   then up to three reads until byte 15 is non-zero; byte 5 is the level in percent.
+// That is the launcher's only HID command, used just for its battery icon. No charging flag is read.
 #include "drivers.h"
 
+namespace {
+
+void PollDareuA84(PollContext& ctx) {
+    const USHORT vid = 0x260D, pid = 0x0022;
+    if (ctx.IsClaimed(vid, pid)) return;
+    auto colls = ctx.Find(vid, pid, [](const HidColl& c) {
+        return c.iface == 0 && c.page() == 0x01 && c.usage() == 0x06 && c.featLen() == 65;
+    });
+    if (colls.size() != 1) return;
+    HidDev d;
+    if (!d.OpenFeatureOnly(*colls[0])) return;
+    std::vector<BYTE> req(65, 0), r;
+    req[1] = 0x04;
+    req[2] = 0xF6;
+    if (!d.SetFeature(req)) return;
+    Sleep(10);
+    for (int i = 0; i < 3; i++) {  // the official driver discards these reads
+        d.GetFeature(0, r);
+        Sleep(10);
+    }
+    for (int i = 0; i < 3; i++) {
+        if (i) Sleep(10);
+        if (!d.GetFeature(0, r) || r.size() < 16 || r[15] == 0) continue;
+        if (r[5] > 100) return;
+        DeviceStatus s;
+        s.key = L"dareu:" + Hex4(vid) + L":" + Hex4(pid);
+        s.name = L"DAREU A84";
+        s.kind = DeviceKind::Keyboard;
+        s.via = L"HID";
+        s.percent = r[5];
+        ctx.Add(s, vid, pid);
+        return;
+    }
+}
+
+}  // namespace
+
 void PollDareu(PollContext& ctx) {
+    PollDareuA84(ctx);
     const USHORT vid = 0x260D;
     // Prefer a valid cable reading over potentially cached receiver telemetry.
     for (USHORT pid : { USHORT(0x1090), USHORT(0x1074) }) {
