@@ -68,7 +68,7 @@ void PollAudeze(PollContext& ctx);        // Audeze Maxwell (VID 3329) dongle or
 void PollNzxt(PollContext& ctx);          // NZXT Lift Elite Wireless (1E71:2101 / 2129)
 void PollPlantronics(PollContext& ctx);   // Poly / Plantronics headsets behind the BT600 adapter (047F)
 void PollVaxee(PollContext& ctx);     // VAXEE 4K receiver / NP-01S V2 cable, read-only battery commands
-void PollWlmouse(PollContext& ctx);   // WLMouse Beast X family (VID 36A7)
+void PollWlmouse(PollContext& ctx);   // WLMouse Beast X family and Beast G (VID 36A7)
 void PollFinalmouse(PollContext& ctx);  // Finalmouse UltralightX / Starlight X dongles (VID 361D), read-only GETs
 void PollNinjutso(PollContext& ctx);  // Sora V2 1K receiver (1915:AE1C)
 void PollNinjutso(PollContext& ctx);  // Sora V2 (1915:AE1C 1K receiver, AE11 cable)
