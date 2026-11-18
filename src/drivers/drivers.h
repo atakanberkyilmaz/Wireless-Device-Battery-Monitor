@@ -141,7 +141,7 @@ void PollSonyInzone(PollContext &ctx);    // Sony INZONE H9 II / H5 / Buds
 void PollSonix(PollContext &ctx);         // SONiX keyboards on their 2.4 GHz dongle (AJAZZ AK820 MAX, AK980 V2, AULA F108 Pro)
 void PollFractal(PollContext &ctx);       // Fractal Design Scape headset (dongle or cable)
 void PollJabra(PollContext &ctx);         // Jabra headsets behind a Link 380 / 390 dongle
-void PollJbl(PollContext &ctx);           // JBL Quantum 520 / 650 / 850 / 950 wireless headsets
+void PollJbl(PollContext &ctx);           // JBL Quantum 350 / 610 (HIDV1) and 520 / 650 / 850 / 950 (HIDV3) wireless headsets
 void PollRog(PollContext &ctx);           // ASUS ROG keyboards, mice and the Pelta headset
 void PollZowie(PollContext &ctx);         // BenQ ZOWIE EC-CW / DW / U2 mice
 void PollRoyalKludge(PollContext &ctx);   // Royal Kludge MG6 Pro (VID 2E3C, QiWang protocol)
