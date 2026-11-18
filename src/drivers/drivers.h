@@ -132,6 +132,7 @@ void PollEndgame(PollContext &ctx);       // Endgame Gear 4K mice (OP1w 4k, XM2w
 void PollVaxee(PollContext &ctx);         // VAXEE 4K receiver / NP-01S V2 cable, read-only battery commands
 void PollWlmouse(PollContext &ctx);       // WLMouse Beast X family (VID 36A7)
 void PollFinalmouse(PollContext &ctx);    // Finalmouse UltralightX / Starlight X dongles (VID 361D), read-only GETs
+void PollScyrox(PollContext &ctx);        // Scyrox V12M on its 2.4 GHz receiver (395A:0006), read-only profile read
 void PollNinjutso(PollContext &ctx);      // Sora V2 1K receiver (1915:AE1C)
 void PollNinjutso(PollContext &ctx);      // Sora V2 (1915:AE1C 1K receiver, AE11 cable)
 void PollNinjutso(PollContext &ctx);      // Sora V2 1K receiver (1915:AE1C) and Ten / Ten Air (093A:EB01 / 093A:E020)
