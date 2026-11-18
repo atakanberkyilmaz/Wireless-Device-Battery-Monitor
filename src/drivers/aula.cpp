@@ -45,6 +45,7 @@
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
+#include <iterator>
 
 namespace {
 
@@ -301,12 +302,32 @@ bool QueryHeroBattery(HidDev& d, int& level, bool& charging) {
     return true;
 }
 
+// Other keyboards share these receiver ids: the Redragon K673 comes on 3554:FA09 as well, ignores
+// these frames, and every request wakes it right after it has gone to sleep (issue #191). A
+// receiver that has never answered since it was plugged in is therefore asked less and less often
+// once it has stayed silent for a while (5, 10, 20, 40 minutes, then hourly). One answer brings
+// back the normal per-poll query; unplugging the receiver starts over.
+struct ReceiverState {
+    bool answered = false;
+    int misses = 0, backoffs = 0;
+    ULONGLONG firstMiss = 0, nextTry = 0;
+};
+constexpr int kMissesBeforeBackoff = 3;
+constexpr ULONGLONG kBackoffAfterMs = 5 * 60 * 1000;  // keep asking for 5 minutes: the keyboard may be switched on late
+constexpr ULONGLONG kFirstBackoffMs = 5 * 60 * 1000;
+constexpr ULONGLONG kMaxBackoffMs = 60 * 60 * 1000;
+
 }  // namespace
 
 void PollAula(PollContext& ctx) {
-    for (const auto& rcv : kReceivers) {
-        USHORT vid = rcv.vid, pid = rcv.pid;
+    static ReceiverState states[std::size(kReceivers)];
+    for (size_t i = 0; i < std::size(kReceivers); i++) {
+        USHORT vid = kReceivers[i].vid, pid = kReceivers[i].pid;
+        ReceiverState& st = states[i];
+        if (ctx.Find(vid, pid, [](const HidColl&) { return true; }).empty()) st = ReceiverState();  // unplugged
         if (ctx.IsClaimed(vid, pid)) continue;
+        if (!st.answered && st.nextTry && GetTickCount64() < st.nextTry) continue;
+        bool tried = false, answered = false;
         for (const HidColl* c : ctx.Find(vid, pid, [](const HidColl& c) {
                  return (c.page() == 0xFF02 || c.page() == 0xFF04) && c.usage() == 0x0002 && c.outLen() >= 20 &&
                         c.inLen() >= 20;
@@ -320,10 +341,12 @@ void PollAula(PollContext& ctx) {
             const wchar_t* model = generic ? IdentifyModel(d) : nullptr;
             bool mchose = vid == 0x41E4 || model != nullptr;
             std::vector<BYTE> r;
+            tried = true;
             // Byte 2 alternates 00 / 01 on resends; M HUB sends 01, the AULA references 00.
             if (!Exchange(d, 0x4A, r, 4000)) continue;
             int level = r[5];
             if (level < 1 || level > 100) continue;
+            answered = true;
             DeviceStatus s;
             s.key = L"aula:" + Hex4(vid) + L":" + Hex4(pid);
             s.name = model ? model : mchose ? L"MCHOSE wireless keyboard" : L"AULA wireless keyboard";
@@ -336,6 +359,16 @@ void PollAula(PollContext& ctx) {
             s.graceSec = 1800;
             ctx.Add(s, vid, pid);
             break;
+        }
+        if (answered) {
+            st.answered = true;
+        } else if (tried && !st.answered) {
+            ULONGLONG now = GetTickCount64();
+            if (!st.misses++) st.firstMiss = now;
+            if (st.misses >= kMissesBeforeBackoff && now - st.firstMiss >= kBackoffAfterMs) {
+                int doublings = std::min(st.backoffs++, 4);
+                st.nextTry = now + std::min(kFirstBackoffMs << doublings, kMaxBackoffMs);
+            }
         }
     }
 

@@ -79,6 +79,11 @@ void PollKysona(PollContext& ctx) {
             // ATK N9 Pro / N9 Ultra headsets speak a serial protocol (atk_serial.cpp); never send
             // them mouse frames, even when the ATK app holds their port and they stay unclaimed.
             if (vid == 0x373B && (pid == 0x11CA || pid == 0x11CB || pid == 0x1203 || pid == 0x1204)) continue;
+            // 3554:FA09 / FB40 are the "BY" keyboard receivers (AULA, MCHOSE, also used by the Redragon
+            // K673) that aula.cpp handles. Their FF02:0002 collection passes the size check below, so a
+            // keyboard aula.cpp could not read got two mouse frames every poll, which kept a K673 from
+            // going to sleep (issue #191). Never send them mouse frames.
+            if (vid == 0x3554 && (pid == 0xFA09 || pid == 0xFB40)) continue;
             // Kysona exposes a dedicated 17-byte collection; ATK / VXE receivers put report 08 in a
             // vendor collection that also carries larger reports. The checksummed reply filters out
             // anything that does not speak this protocol.
