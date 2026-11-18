@@ -21,6 +21,12 @@
 // Sources: github.com/nvalis/nape_pro (docs/protocol-reference.md, src/nape_cli/receiver.py, checked
 // on a real D026), github.com/gtun/KeychronNapeBatteryWidget (src/nape_battery.py) and
 // github.com/ky0209/NapeBar. The same request works on the Nape Pro's own USB cable PID (3434:0440).
+// Mice on the Ultra-Link 8K receiver (3434:D028) use the Launcher's default "8k" protocol on the
+// vendor collection FFC1:0001 (the Launcher's "mouse" collection; numbered 64-byte reports). Report
+// B5 [03] asks the receiver for its slots ([03] then vid LE16, pid LE16, status x3, 1 = connected),
+// as the Launcher's getKReciverState does; report B3 [06] returns the mouse's base info, whose byte 19
+// is the power byte: bits 0-6 = battery %, bit 7 = charging (the Launcher's power.value/power.state,
+// also used for its battery-life estimate). Read-only; from launcher.keychron.com main.js.
 #include "drivers.h"
 
 namespace {
@@ -179,11 +185,59 @@ void PollLegacy(PollContext& ctx) {
     }
 }
 
+constexpr USHORT kUltraLink8k = 0xD028;  // Keychron Ultra-Link 8K receiver
+constexpr BYTE kUltraReceiverReport = 0xB5;
+constexpr BYTE kUltraMouseReport = 0xB3;
+
+// Sends report `id` [cmd] on the FFC1 collection and waits up to 600 ms for an input report whose
+// first payload byte (after the report id) is cmd; other reports on the channel are skipped.
+bool UltraQuery(HidDev& d, BYTE id, BYTE cmd, std::vector<BYTE>& r) {
+    d.Flush();
+    if (!d.Write({id, cmd})) return false;
+    ULONGLONG end = GetTickCount64() + 600;
+    while ((LONGLONG)end - (LONGLONG)GetTickCount64() > 0) {
+        int left = (int)((LONGLONG)end - (LONGLONG)GetTickCount64());
+        int n = d.Read(r, left);
+        if (n < 0) return false;
+        if (n >= 21 && r[1] == cmd) return true;
+    }
+    return false;
+}
+
+// 8K mouse on the Ultra-Link 8K receiver (Launcher protocol "8k" on FFC1:0001).
+void PollUltraLink(PollContext& ctx) {
+    for (const HidColl* c : ctx.Find(0x3434, kUltraLink8k, [](const HidColl& c) { return c.page() == 0xFFC1 && c.usage() == 0x01 && c.outLen() >= 21 && c.inLen() >= 21; })) {
+        HidDev d;
+        if (!d.Open(*c)) continue;
+        std::vector<BYTE> r;
+        // Only ask when a mouse sits in a receiver slot and is connected.
+        if (!UltraQuery(d, kUltraReceiverReport, 0x03, r)) continue;
+        bool connected = false;
+        for (int off : {3, 8, 13})  // payload offsets 2/7/12 (+1 for the report id): vid LE16, pid LE16, status
+            connected = connected || ((r[off] | r[off + 1]) != 0 && r[off + 4] != 0);
+        if (!connected) continue;
+        if (!UltraQuery(d, kUltraMouseReport, 0x06, r)) continue;
+        BYTE power = r[20];  // payload byte 19
+        int percent = power & 0x7F;
+        if (percent < 1 || percent > 100) continue;
+        DeviceStatus s;
+        s.key = L"keychron:" + Hex4(kUltraLink8k);
+        s.name = CleanName(HidProduct(*c));
+        s.kind = DeviceKind::Mouse;
+        s.via = L"2.4 GHz receiver";
+        s.percent = percent;
+        s.charging = (power & 0x80) != 0;
+        ctx.Add(s, 0x3434, kUltraLink8k);
+        return;
+    }
+}
+
 }  // namespace
 
 void PollKeychron(PollContext& ctx) {
     PollNape(ctx);
     PollLegacy(ctx);
+    PollUltraLink(ctx);
     for (auto [vid, pid] : ctx.Products(0x3434)) {
         for (const HidColl* c : ctx.Find(vid, pid, [](const HidColl& c) { return c.page() >= 0xFF00 && c.outLen() == 65 && c.inLen() == 65; })) {
             HidDev d;

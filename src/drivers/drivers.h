@@ -55,7 +55,7 @@ void PollAula(PollContext& ctx);      // AULA F75 / F87 Pro / F99 / HERO 68 Air 
 void PollDareu(PollContext& ctx);     // DAREU EM901X receiver / cable (split feature/input collections)
 void PollDarmoshark(PollContext& ctx); // Darmoshark M3 over its 2.4 GHz receiver
 void PollAtkSerial(PollContext& ctx); // ATK N9 Pro / N9 Ultra headsets (virtual COM port)
-void PollKeychron(PollContext& ctx);  // Keychron mice, Nape Pro trackball (Link-KM receiver)
+void PollKeychron(PollContext& ctx);  // Keychron mice (incl. Ultra-Link 8K receiver), Nape Pro trackball (Link-KM receiver)
 void PollCherry(PollContext& ctx);    // CHERRY MX 3.0S Wireless on its 2.4 GHz dongle (046A:00EA) or USB cable (046A:00E3)
 void PollArbiter(PollContext& ctx);   // Arbiter Studio Akitsu mice on 373E (before Lamzu, same vendor id)
 void PollLamzu(PollContext& ctx);     // LAMZU mice on vendor ids 373E / 37B0
@@ -126,7 +126,7 @@ void PollAula(PollContext &ctx);          // AULA F75 / F87 Pro / F99 / HERO 68 
 void PollDareu(PollContext &ctx);         // DAREU EM901X receiver (split feature/input collections)
 void PollDarmoshark(PollContext &ctx);    // Darmoshark M3 over its 2.4 GHz receiver
 void PollAtkSerial(PollContext &ctx);     // ATK N9 Pro / N9 Ultra headsets (virtual COM port)
-void PollKeychron(PollContext &ctx);      // Keychron mice, Nape Pro trackball (Link-KM receiver)
+void PollKeychron(PollContext &ctx);      // Keychron mice (incl. Ultra-Link 8K receiver), Nape Pro trackball (Link-KM receiver)
 void PollLamzu(PollContext &ctx);         // LAMZU mice on vendor ids 373E / 37B0
 void PollEndgame(PollContext &ctx);       // Endgame Gear 4K mice (OP1w 4k, XM2w 4k) on the 4K dongle
 void PollVaxee(PollContext &ctx);         // VAXEE 4K receiver / NP-01S V2 cable, read-only battery commands
