@@ -52,6 +52,7 @@ bool GWolvesIsCable(USHORT pid);
 // Vendor drivers (run in this order).
 void PollGlorious(PollContext& ctx);  // also Hitscan
 void PollAula(PollContext& ctx);      // AULA F75 / F87 Pro / F99 / HERO 68 Air keyboards (before Kysona)
+void PollEweadn(PollContext& ctx);    // EWEADN S7 / S9 mice (372E:103D receiver, 372E:1027 S9 Ultra cable)
 void PollDareu(PollContext& ctx);     // DAREU EM901X receiver / cable (split feature/input collections)
 void PollDarmoshark(PollContext& ctx); // Darmoshark M3 over its 2.4 GHz receiver
 void PollAtkSerial(PollContext& ctx); // ATK N9 Pro / N9 Ultra headsets (virtual COM port)
