@@ -61,7 +61,7 @@ void PollArbiter(PollContext& ctx);   // Arbiter Studio Akitsu mice on 373E (bef
 void PollLamzu(PollContext& ctx);     // LAMZU mice on vendor ids 373E / 37B0
 void PollEndgame(PollContext& ctx);   // Endgame Gear 4K mice (OP1w 4k, XM2w 4k) on the 4K dongle
 void PollEndgameWe(PollContext& ctx);     // Endgame Gear XM2we on its original receiver (3367:1961)
-void PollAtkKeyboard(PollContext& ctx);   // ATK V75X keyboard (320F:5088 receiver, 5055 cable)
+void PollAtkKeyboard(PollContext& ctx);   // ATK V75X / VGN keyboards (Evision 320F:5088 receiver, 5055 cable)
 void PollBarracudaPro(PollContext& ctx);  // Razer Barracuda Pro (1532:053A), before the generic Razer driver
 void PollSteelSeriesElite(PollContext& ctx);  // SteelSeries Arctis Nova Elite base station (1038:2244)
 void PollAudeze(PollContext& ctx);        // Audeze Maxwell (VID 3329) dongle or cable
