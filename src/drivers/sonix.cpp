@@ -5,6 +5,8 @@
 //   request [20 01 00 ... sum]          sum = byte sum of the 31 bytes before it
 //   reply   [20 01 00 level ... sum]    level in percent; same checksum
 // The keyboard only reports its level while it is switched to 2.4G mode. The protocol is read-only.
+// MCHOSE K87 receivers on the same 05AC:024F id expose a different layout (the BY collection on
+// interface 1, no FF60 on interface 3); aula.cpp runs first and reads those.
 // From github.com/donglover69/sonix-keyboard-studio (README, "2.4G dongles").
 #include "drivers.h"
 

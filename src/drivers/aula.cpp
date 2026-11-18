@@ -1,5 +1,10 @@
 // AULA F75 / F87 Pro / F99 and MCHOSE (K99 V2, G75 Pro, X75 ...) wireless keyboards on the "BY" 2.4 GHz
 // receivers: 3554:FA09 (Compx, shared by both brands) and MCHOSE's own 41E4:2001.
+// MCHOSE K87 / K99 receivers also come as 05AC:024F (Apple's vendor id), the id the SONiX dongles in
+// sonix.cpp use. M HUB lists 1452/591 among its devices; the MCHOSE ones are told apart by layout:
+// the BY collection on interface 1 (FF02:0002, 20-byte input and output reports) next to an
+// FF04:0002 feature collection, where the SONiX dongles only have FF60:0061 on interface 3.
+// Only that exact layout is probed on this id (issue #1417, MCHOSE K87).
 // The receiver exposes a 20-byte vendor collection (usage page FF02 or FF04, usage 02). Battery is a
 // 20-byte output report 0x13 carrying command 0x4A and a trailing sum checksum. The reply is
 // another 0x13 frame whose command byte, with its top bit masked, is 0x4A. Its payload starts at
@@ -20,7 +25,8 @@
 // (windows/l65w.ps1) and github.com/ushineko/sanshoku issue 36.
 // MCHOSE receiver ids, model codes and frames from the official M HUB web driver
 // (www.mchose.com.cn, assets/main-DQZs6ZzX.js: HidIndexDeviceFilters, getDevName, keyboardPwds,
-// getPassWord, getBattery, getBatteryParser), as also documented in
+// getPassWord, getBattery, getBatteryParser; vendorId 1452 / productId 591 with usage page FF00
+// or FF04, getDevName "K87" / "K99" on 591, wireless report id 19 = 0x13), as also documented in
 // github.com/wushuai0802/myfinder-device-battery (engine/upstream-protocols.md, sections
 // "MCHOSE BY keyboard receiver 3554:FA09" and "MCHOSE 41E4:2001 and other 41E4 identities").
 //
@@ -51,7 +57,24 @@ namespace {
 struct Receiver {
     USHORT vid, pid;
 };
-const Receiver kReceivers[] = { { 0x3554, 0xFA09 }, { 0x3554, 0xFB40 }, { 0x41E4, 0x2001 } };
+const Receiver kReceivers[] = { { 0x3554, 0xFA09 }, { 0x3554, 0xFB40 }, { 0x41E4, 0x2001 }, { 0x05AC, 0x024F } };
+
+// 05AC:024F is shared with the SONiX dongles (sonix.cpp), so only the MCHOSE layout is accepted there.
+bool IsAppleId(USHORT vid, USHORT pid) { return vid == 0x05AC && pid == 0x024F; }
+
+bool IsByCollection(const HidColl& c) {
+    if (!IsAppleId(c.vid, c.pid))
+        return (c.page() == 0xFF02 || c.page() == 0xFF04) && c.usage() == 0x0002 && c.outLen() >= 20 && c.inLen() >= 20;
+    return c.iface == 1 && c.page() == 0xFF02 && c.usage() == 0x0002 && c.inLen() == 20 && c.outLen() == 20;
+}
+
+// The MCHOSE 05AC:024F receiver also has the FF04:0002 feature collection on interface 1.
+bool HasMchoseLayout(const PollContext& ctx, USHORT vid, USHORT pid) {
+    return !ctx.Find(vid, pid, [](const HidColl& c) {
+                   return c.iface == 1 && c.page() == 0xFF04 && c.usage() == 0x0002 && c.featLen() > 0 &&
+                          c.inLen() == 0 && c.outLen() == 0;
+               }).empty();
+}
 
 // M HUB's keyboardPwds table: the six-byte model code returned by command 0x05.
 struct Model {
@@ -307,18 +330,18 @@ void PollAula(PollContext& ctx) {
     for (const auto& rcv : kReceivers) {
         USHORT vid = rcv.vid, pid = rcv.pid;
         if (ctx.IsClaimed(vid, pid)) continue;
-        for (const HidColl* c : ctx.Find(vid, pid, [](const HidColl& c) {
-                 return (c.page() == 0xFF02 || c.page() == 0xFF04) && c.usage() == 0x0002 && c.outLen() >= 20 &&
-                        c.inLen() >= 20;
-             })) {
+        if (IsAppleId(vid, pid) && !HasMchoseLayout(ctx, vid, pid)) continue;  // a SONiX dongle: sonix.cpp
+        for (const HidColl* c : ctx.Find(vid, pid, IsByCollection)) {
             HidDev d;
             if (!d.Open(*c)) continue;
-            // Only the generic receiver names carry a model code (M HUB asks no other device).
+            // The generic receiver names carry a model code (M HUB asks no other 3554 / 41E4 device).
             std::wstring product = HidProduct(*c);
             bool generic = product.find(L"2.4G Wireless Receiver") != std::wstring::npos ||
                            product.find(L"MCHOSE 2.4G Wireless") != std::wstring::npos;
-            const wchar_t* model = generic ? IdentifyModel(d) : nullptr;
-            bool mchose = vid == 0x41E4 || model != nullptr;
+            // M HUB names a 05AC:024F keyboard from its product string ("K87", "K99"), so ask for the
+            // model code there whatever the name is.
+            const wchar_t* model = generic || IsAppleId(vid, pid) ? IdentifyModel(d) : nullptr;
+            bool mchose = vid == 0x41E4 || IsAppleId(vid, pid) || model != nullptr;
             std::vector<BYTE> r;
             // Byte 2 alternates 00 / 01 on resends; M HUB sends 01, the AULA references 00.
             if (!Exchange(d, 0x4A, r, 4000)) continue;
@@ -326,7 +349,12 @@ void PollAula(PollContext& ctx) {
             if (level < 1 || level > 100) continue;
             DeviceStatus s;
             s.key = L"aula:" + Hex4(vid) + L":" + Hex4(pid);
-            s.name = model ? model : mchose ? L"MCHOSE wireless keyboard" : L"AULA wireless keyboard";
+            if (model)
+                s.name = model;
+            else if (IsAppleId(vid, pid) && !generic && !product.empty())
+                s.name = product;  // a product string that names the keyboard, as M HUB's getDevName uses
+            else
+                s.name = mchose ? L"MCHOSE wireless keyboard" : L"AULA wireless keyboard";
             s.kind = DeviceKind::Keyboard;
             s.via = L"2.4 GHz receiver";
             s.percent = level;
